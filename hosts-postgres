@@ -1,0 +1,2 @@
+[serverspace_host_postgres]
+93.183.74.3 ansible_ssh_user=postgres ansible_ssh_pass=your_postgres_password

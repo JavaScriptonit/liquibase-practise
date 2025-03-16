@@ -1,0 +1,77 @@
+---
+- name: Установка и настройка Liquibase
+  hosts: serverspace_host
+  become: yes
+  vars_files:
+    - vars/main.yml
+  tasks:
+    - name: Установка Java
+      apt:
+        name: openjdk-11-jdk
+        state: present
+
+    - name: Скачивание Liquibase
+      get_url:
+        url: https://github.com/liquibase/liquibase/releases/download/v4.20.0/liquibase-4.20.0.tar.gz
+        dest: /tmp/liquibase-4.20.0.tar.gz
+
+    - name: Распаковка Liquibase
+      unarchive:
+        src: /tmp/liquibase-4.20.0.tar.gz
+        dest: /usr/local/bin/
+        remote_src: yes
+
+    - name: Установка прав на исполнение
+      file:
+        path: /usr/local/bin/liquibase
+        mode: '0755'
+
+    - name: Создание директории для проекта Liquibase
+      file:
+        path: /opt/liquibase-project/changelogs
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Копирование файла конфигурации liquibase.properties
+      template:
+        src: files/liquibase.properties.j2
+        dest: /opt/liquibase-project/liquibase.properties
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Копирование db.changelog-master.xml
+      copy:
+        src: files/db.changelog-master.xml
+        dest: /opt/liquibase-project/changelogs/db.changelog-master.xml
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Копирование 001-create-users-table.xml
+      copy:
+        src: files/001-create-users-table.xml
+        dest: /opt/liquibase-project/changelogs/001-create-users-table.xml
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Копирование 002-create-orders-table.xml
+      copy:
+        src: files/002-create-orders-table.xml
+        dest: /opt/liquibase-project/changelogs/002-create-orders-table.xml
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Применение изменений в БД
+      command: liquibase update
+      args:
+        chdir: /opt/liquibase-project
+      register: liquibase_start
+      ignore_errors: true
+
+    - debug:
+        var: liquibase_start

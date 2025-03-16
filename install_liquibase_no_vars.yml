@@ -1,0 +1,135 @@
+---
+- name: Установка и настройка Liquibase
+  hosts: serverspace_host
+  become: yes
+  vars:
+    db_name: mydatabase
+    db_user: myuser
+    db_password: mysecurepassword
+    postgres_password: your_postgres_password
+  tasks:
+    - name: Установка Java
+      apt:
+        name: openjdk-11-jdk
+        state: present
+
+    - name: Скачивание Liquibase
+      get_url:
+        url: https://github.com/liquibase/liquibase/releases/download/v4.20.0/liquibase-4.20.0.tar.gz
+        dest: /tmp/liquibase-4.20.0.tar.gz
+
+    - name: Распаковка Liquibase
+      unarchive:
+        src: /tmp/liquibase-4.20.0.tar.gz
+        dest: /usr/local/bin/
+        remote_src: yes
+
+    - name: Установка прав на исполнение
+      file:
+        path: /usr/local/bin/liquibase
+        mode: '0755'
+
+    - name: Создание директории для проекта Liquibase
+      file:
+        path: /opt/liquibase-project/changelogs
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Копирование файла конфигурации liquibase.properties
+      copy:
+        content: |
+          url: jdbc:postgresql://localhost:5432/{{ db_name }}
+          username: {{ db_user }}
+          password: {{ db_password }}
+          changeLogFile: changelogs/db.changelog-master.xml
+        dest: /opt/liquibase-project/liquibase.properties
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Копирование db.changelog-master.xml
+      copy:
+        content: |
+          <?xml version="1.0" encoding="UTF-8"?>
+          <databaseChangeLog
+              xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+              http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+              <include file="001-create-users-table.xml" relativeToChangelogFile="true"/>
+              <include file="002-create-orders-table.xml" relativeToChangelogFile="true"/>
+          </databaseChangeLog>
+        dest: /opt/liquibase-project/changelogs/db.changelog-master.xml
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Копирование 001-create-users-table.xml
+      copy:
+        content: |
+          <?xml version="1.0" encoding="UTF-8"?>
+          <databaseChangeLog
+              xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+              http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+              <changeSet id="1" author="devops">
+                  <createTable tableName="users">
+                      <column name="id" type="int" autoIncrement="true">
+                          <constraints primaryKey="true" nullable="false"/>
+                      </column>
+                      <column name="username" type="varchar(50)"/>
+                      <column name="email" type="varchar(100)"/>
+                  </createTable>
+              </changeSet>
+          </databaseChangeLog>
+        dest: /opt/liquibase-project/changelogs/001-create-users-table.xml
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Копирование 002-create-orders-table.xml
+      copy:
+        content: |
+          <?xml version="1.0" encoding="UTF-8"?>
+          <databaseChangeLog
+              xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+              http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+              <changeSet id="2" author="devops">
+                  <createTable tableName="orders">
+                      <column name="id" type="int" autoIncrement="true">
+                          <constraints primaryKey="true" nullable="false"/>
+                      </column>
+                      <column name="user_id" type="int"/>
+                      <column name="order_date" type="timestamp"/>
+                      <column name="amount" type="decimal(10,2)"/>
+                  </createTable>
+                  <addForeignKeyConstraint
+                      baseTableName="orders"
+                      baseColumnNames="user_id"
+                      constraintName="fk_user_id"
+                      referencedTableName="users"
+                      referencedColumnNames="id"/>
+              </changeSet>
+          </databaseChangeLog>
+        dest: /opt/liquibase-project/changelogs/002-create-orders-table.xml
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Применение изменений в БД
+      command: liquibase update
+      args:
+        chdir: /opt/liquibase-project
+      register: liquibase_start
+      ignore_errors: true
+
+    - debug:
+        var: liquibase_start
