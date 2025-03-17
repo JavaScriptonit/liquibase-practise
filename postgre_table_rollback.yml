@@ -1,0 +1,52 @@
+---
+- name: Управление базой данных с помощью Liquibase
+  hosts: serverspace_host
+  become: yes
+  vars_files:
+    - vars/main.yml
+  vars:
+    new_db_name: "new_database"
+  tasks:
+    - name: Создание директории для проекта Liquibase
+      file:
+        path: "/opt/liquibase-project-{{ new_db_name }}/changelogs"
+        state: directory
+        mode: '0777'
+
+    - name: Копирование файлов Liquibase для новой базы данных
+      copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        mode: '0777'
+      loop:
+        - { src: "files/db.changelog-master.xml", dest: "/opt/liquibase-project-{{ new_db_name }}/changelogs/db.changelog-master.xml" }
+        - { src: "files/001-create-users-table.xml", dest: "/opt/liquibase-project-{{ new_db_name }}/changelogs/001-create-users-table.xml" }
+        - { src: "files/002-create-orders-table.xml", dest: "/opt/liquibase-project-{{ new_db_name }}/changelogs/002-create-orders-table.xml" }
+
+    - name: Настройка liquibase.properties для новой базы данных
+      template:
+        src: files/new_database/liquibase.properties.j2
+        dest: /opt/liquibase-project-{{ new_db_name }}/liquibase.properties
+        mode: '0777'
+      vars:
+        db_name: "{{ new_db_name }}"
+
+    - name: Применение изменений в новой базе данных
+      command: liquibase update
+      args:
+        chdir: /opt/liquibase-project-{{ new_db_name }}
+      register: liquibase_start
+      ignore_errors: true
+
+    - debug:
+        var: liquibase_start
+
+    - name: Откат изменений (удаление таблицы)
+      command: liquibase rollbackCount 2
+      args:
+        chdir: /opt/liquibase-project-{{ new_db_name }}
+      register: liquibase_rollback
+      ignore_errors: true
+
+    - debug:
+        var: liquibase_rollback

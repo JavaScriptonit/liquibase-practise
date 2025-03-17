@@ -1,4 +1,8 @@
 db_name: mydatabase
 db_user: myuser
 db_password: mysecurepassword
-postgres_password: your_postgres_password
+new_db_name: new_database  # Название базы данных
+new_db_user: new_myuser      # Имя пользователя базы данных
+new_db_password: mysecurepassword  # Пароль пользователя базы данных
+postgres_user: postgres # Поскольку используется peer на сервере, этот параметр не нужен
+postgres_password: your_postgres_password # Поскольку используется peer на сервере, этот параметр не нужен
